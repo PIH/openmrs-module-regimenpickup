@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<module configVersion="1.0">
+
+  <id>regimenpickup</id>
+  <name>Regimen Pickup</name>
+  <version>1.0</version>
+  <package>org.openmrs.module.@MODULE_ID@</package>
+  <author>Partners In Health</author>
+  <description>
+    Provides the ability to record regimen pickup encounters and observations, and to display these in a calendar view
+  </description>
+
+  <activator>@MODULE_PACKAGE@.ModuleActivator</activator>
+
+  <require_version>1.6</require_version>
+
+  <extension>
+    <point>org.openmrs.patientDashboardTab</point>
+    <class>@MODULE_PACKAGE@.web.extension.RegimenPickupExtension</class>
+  </extension>
+
+  <globalProperty>
+    <property>regimenpickup.regimenPickupEncounterId</property>
+    <defaultValue>11</defaultValue>
+    <description>The encounterTypeId to use for Regimen Pickup Encounters</description>
+  </globalProperty>
+
+  <dwr>
+    <allow>
+      <create creator="new" javascript="RegimenPickupDWRService">
+        <param name="class" value="org.openmrs.module.regimenpickup.web.dwr.RegimenPickupDWRService"/>
+        <include method="addPickup"/>
+        <include method="voidPickup"/>
+      </create>
+    </allow>
+    <signatures>
+      <![CDATA[
+        import org.openmrs.module.regimenpickup.web.dwr.RegimenPickupDWRService;
+        RegimenPickupDWRService.addPickup(String regimen, String dateString, String locationName, Integer patientId);
+        RegimenPickupDWRService.voidPickup(Integer obsId, Integer patientId);
+      ]]>
+    </signatures>
+  </dwr>
+
+  <messages>
+    <lang>en</lang>
+    <file>messages.properties</file>
+  </messages>
+
+</module>
