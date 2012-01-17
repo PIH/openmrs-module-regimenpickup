@@ -13,7 +13,6 @@
  */
 package org.openmrs.module.regimenpickup.web.dwr;
 
-import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
@@ -27,7 +26,6 @@ import org.openmrs.EncounterType;
 import org.openmrs.Location;
 import org.openmrs.Obs;
 import org.openmrs.Patient;
-import org.openmrs.User;
 import org.openmrs.api.EncounterService;
 import org.openmrs.api.ObsService;
 import org.openmrs.api.OrderService;
@@ -52,29 +50,31 @@ public class RegimenPickupDWRService {
 	         Obs obsToDelete = os.getObs(obsId);
 	         Encounter encToDelete = obsToDelete.getEncounter();
 
-	         // check to make sure this obs is for this patient
+	         // Void the passed Obs, confirming first that the patient is the one we are working with
 	         if (obsToDelete != null && obsToDelete.getPersonId().equals(patientId)){
 	             os.voidObs(obsToDelete, "voided by regimenpickup module: delete pickup");
 	         }
 	         
+	         // Void the associated Encounter, or any other Regimen Pickup encounter that occurs on the same date
+	         // As the Obs, as long as there are no non-voided Obs within the Encounter
 	         if (encToDelete == null) {
 		         List<EncounterType> ets = new ArrayList<EncounterType>();
 		         ets.add(getEncounterType());
 		         Patient patient = Context.getPatientService().getPatient(patientId);
 	        	 List<Encounter> encs = es.getEncounters(patient, null, obsToDelete.getObsDatetime(), obsToDelete.getObsDatetime(), null, ets, null, false);
-	        	 if(encs.size() > 0){
-	        		 encToDelete = encs.get(0);
+	        	 for (Encounter e : encs) {
+	        		 if (encToDelete == null && e.getEncounterType() != null && e.getEncounterType().equals(getEncounterType())) {
+	        			 encToDelete = e;
+	        		 }
 	        	 }
 	         }
 	         
 	         // only invalidate ART Regimen Pickup Encounters that are now empty
-	         if (encToDelete != null && encToDelete.getEncounterType().equals(getEncounterType())){
-	        	 if(encToDelete.getAllObs().size() == 0){
-	        		 es.voidEncounter(encToDelete, "voided by regimenpickup module: delete pickup");
-	        	 }
+	         if (encToDelete != null && encToDelete.getAllObs().isEmpty()) {
+	        	 es.voidEncounter(encToDelete, "voided by regimenpickup module: delete pickup");
 	         }
          } 
-         catch (Exception ex){
+         catch (Exception ex) {
         	 log.error("Exception thrown: ", ex);
              return false;
          }
@@ -84,7 +84,7 @@ public class RegimenPickupDWRService {
      /**
       * Adds a new pickup for the given regimen, date, location, and patient
       */
-     public boolean addPickup(String regimen, String dateString, String locationName, Integer patientId){
+     public boolean addPickup(String regimen, String dateString, String locationName, Integer patientId) {
     	 try {
     		 // get rid of all existing drug orders
     		 Patient patient = Context.getPatientService().getPatient(patientId);
@@ -94,27 +94,15 @@ public class RegimenPickupDWRService {
     		 }
 
     		 // create the obs and encounter
-    		 SimpleDateFormat sdf = Context.getDateFormat();
-    		 Date pickupDate = sdf.parse(dateString);
+    		 Date pickupDate = Context.getDateFormat().parse(dateString);
 
              Concept medsDispensed = Context.getConceptService().getConcept("2876");
              Location l = getLocation(locationName);
-             User u = Context.getAuthenticatedUser();
-             Date d = new Date();
-             Obs o = new Obs();
-             o.setCreator(u);
-             o.setVoided(false);
-             o.setDateCreated(d);
-             o.setLocation(l);
-             o.setConcept(medsDispensed);
-             o.setObsDatetime(pickupDate);
-             o.setPerson(patient);
+
+             Obs o = new Obs(patient, medsDispensed, pickupDate, l);
              o.setValueText(regimen);
     		 
     		 Encounter e = new Encounter();
-             e.setCreator(u);
-             e.setVoided(false);
-             e.setDateCreated(d);
              e.setLocation(l);
              e.setPatient(patient);
              e.setEncounterDatetime(pickupDate);
