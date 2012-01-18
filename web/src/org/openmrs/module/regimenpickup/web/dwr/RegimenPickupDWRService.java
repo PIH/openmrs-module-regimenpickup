@@ -20,15 +20,14 @@ import java.util.List;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.openmrs.Concept;
-import org.openmrs.DrugOrder;
 import org.openmrs.Encounter;
 import org.openmrs.EncounterType;
 import org.openmrs.Location;
 import org.openmrs.Obs;
 import org.openmrs.Patient;
+import org.openmrs.Person;
 import org.openmrs.api.EncounterService;
 import org.openmrs.api.ObsService;
-import org.openmrs.api.OrderService;
 import org.openmrs.api.context.Context;
 
 /**
@@ -55,8 +54,7 @@ public class RegimenPickupDWRService {
 	             os.voidObs(obsToDelete, "voided by regimenpickup module: delete pickup");
 	         }
 	         
-	         // Void the associated Encounter, or any other Regimen Pickup encounter that occurs on the same date
-	         // As the Obs, as long as there are no non-voided Obs within the Encounter
+	         // Locate the associated Encounter, or another Regimen Pickup encounter that occurs on the same date
 	         if (encToDelete == null) {
 		         List<EncounterType> ets = new ArrayList<EncounterType>();
 		         ets.add(getEncounterType());
@@ -69,7 +67,7 @@ public class RegimenPickupDWRService {
 	        	 }
 	         }
 	         
-	         // only invalidate ART Regimen Pickup Encounters that are now empty
+	         // If the found Encounter has no non-voided Obs, void this Encounter as well
 	         if (encToDelete != null && encToDelete.getAllObs().isEmpty()) {
 	        	 es.voidEncounter(encToDelete, "voided by regimenpickup module: delete pickup");
 	         }
@@ -86,33 +84,27 @@ public class RegimenPickupDWRService {
       */
      public boolean addPickup(String regimen, String dateString, String locationName, Integer patientId) {
     	 try {
-    		 // get rid of all existing drug orders
+    		 // Parse the input parameters
     		 Patient patient = Context.getPatientService().getPatient(patientId);
-    		 List<DrugOrder> drugOrders = Context.getOrderService().getDrugOrdersByPatient(patient, OrderService.ORDER_STATUS.NOTVOIDED);
-    		 for (DrugOrder o : drugOrders) {
-    			 Context.getOrderService().voidOrder(o, "voided by regimenpickup module: cleanup existing drug orders");
-    		 }
-
-    		 // create the obs and encounter
     		 Date pickupDate = Context.getDateFormat().parse(dateString);
-
-             Concept medsDispensed = Context.getConceptService().getConcept("2876");
-             Location l = getLocation(locationName);
-
-             Obs o = new Obs(patient, medsDispensed, pickupDate, l);
-             o.setValueText(regimen);
-    		 
+    		 Location l = getLocation(locationName);
+             Concept medsDispensed = getMedsDispensedConcept();
+             
+             // Create a new Encounter and Observation for this medication pickup
     		 Encounter e = new Encounter();
              e.setLocation(l);
              e.setPatient(patient);
              e.setEncounterDatetime(pickupDate);
              e.setEncounterType(getEncounterType());
-             e.setProvider(Context.getPersonService().getPerson(2211));
+             e.setProvider(getDefaultProvider());
+             
+             Obs o = new Obs(patient, medsDispensed, pickupDate, l);
+             o.setValueText(regimen);
              e.addObs(o);   
                 
              Context.getEncounterService().saveEncounter(e);
          } 
-    	 catch (Exception ex){
+    	 catch (Exception ex) {
              log.error("Exception thrown: " + ex);
              return false;
          }
@@ -122,31 +114,65 @@ public class RegimenPickupDWRService {
      /**
       * Utility method to retrieve the Encounter Type for a regimen pickup encounter
       */
-	 private EncounterType getEncounterType(){
+	 private EncounterType getEncounterType() {
     	 EncounterType encType = null;
 	     try {
 	    	 String encTypeId = Context.getAdministrationService().getGlobalProperty("regimenpickup.regimenPickupEncounterId");
 	    	 encType = Context.getEncounterService().getEncounterType(Integer.parseInt(encTypeId));
 	     }
 	     catch (Exception e) {
-	    	 encType = Context.getEncounterService().getEncounterType(11);
-	    	 log.warn("Not setting the encounter type on the regimen pickup encounter. Use default of 11." +
-			        	" Please configure global property regimenpickup.regimenPickupEncounterId.");
+	     }
+	     if (encType == null) {
+	    	 throw new RuntimeException("Unable to find regimen pickup encounter type.  Please configure your global properties.");
 	     }
 	     return encType;
+	 }
+
+     /**
+      * Utility method to retrieve the Concept for the medication dispensed question
+      */
+	 private Concept getMedsDispensedConcept() {
+    	 Concept c = null;
+	     try {
+	    	 String conceptId = Context.getAdministrationService().getGlobalProperty("regimenpickup.medsDispensedConceptId");
+	    	 c = Context.getConceptService().getConcept(Integer.parseInt(conceptId));
+	     }
+	     catch (Exception e) {
+	     }
+	     if (c == null) {
+	    	 throw new RuntimeException("Unable to find medication dispensed concept.  Please configure your global properties.");
+	     }
+	     return c;
 	 }
 	 
 	 /**
 	  * Utility method to retrieve a Location by name, or default to Unknown Location if not found
 	  */
-	 private Location getLocation(String name){
+	 private Location getLocation(String name) {
          Location site = null;
          try {
         	 site = Context.getLocationService().getLocation(name);
          }
-         catch(Exception e){
+         catch(Exception e) {
              site = Context.getLocationService().getLocation("Unknown Location");
          }
          return site;
+	 }
+
+	 /**
+	  * Utility method to retrieve the default Provider by id
+	  */
+	 private Person getDefaultProvider() {
+    	 Person p = null;
+	     try {
+	    	 String personId = Context.getAdministrationService().getGlobalProperty("regimenpickup.defaultProviderId");
+	    	 p = Context.getPersonService().getPerson(Integer.parseInt(personId));
+	     }
+	     catch (Exception e) {
+	     }
+	     if (p == null) {
+	    	 throw new RuntimeException("Unable to find default provider.  Please configure your global properties.");
+	     }
+	     return p;
 	 }
 }

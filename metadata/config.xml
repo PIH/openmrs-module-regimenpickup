@@ -24,6 +24,18 @@
     <defaultValue>11</defaultValue>
     <description>The encounterTypeId to use for Regimen Pickup Encounters</description>
   </globalProperty>
+  
+  <globalProperty>
+    <property>regimenpickup.medsDispensedConceptId</property>
+    <defaultValue>2876</defaultValue>
+    <description>The conceptId to use for the question that asks what regimen was dispensed.  This should be a question with text datatype</description>
+  </globalProperty>
+  
+  <globalProperty>
+    <property>regimenpickup.defaultProviderId</property>
+    <defaultValue>2211</defaultValue>
+    <description>The default provider to use for each entered regimen pickup encounter</description>
+  </globalProperty>
 
   <dwr>
     <allow>
