@@ -25,9 +25,9 @@ function voidPickup(obsId){
 
 function addPickup(){
 	//check if the patient state is ART or PMTCT
-	var invalidState = ${model.invalidState};
+	var invalidState = "${model.invalidState}";
 	if(invalidState){
-		  alert('Before entering the pickup, please make sure the patient is in ART or PMTCT treatment status');
+		  alert(invalidState);
 		  return;
 	}
 	
@@ -123,19 +123,21 @@ function addPickup(){
 <div class="box">
 	Drug Regimen:
 	<select id="regimens">
-		<c:forEach items="${model.regCodes}" var="regCode" varStatus="i"><c:choose><c:when test="${model.regCodeSelected == i.index }">
-		<option value="${regCode[0]}" selected>${regCode[1]}</option></c:when><c:otherwise>
-		<option value="${regCode[0]}">${regCode[1]}</option></c:otherwise></c:choose></c:forEach>
+		<c:forEach items="${model.regCodes}" var="regCodeEntry" varStatus="i">
+			<option value="${regCodeEntry.key}"<c:if test="${model.regCodeSelected == regCodeEntry.key}"> selected</c:if>>
+				${regCodeEntry.value}
+			</option>
+		</c:forEach>
 	</select>
 	&nbsp;&nbsp;&nbsp;
 	Pickup Date:
 	<input id="pickupDate" style="width:90px;" value="${model.now}" onClick="showCalendar(this)"">
 	&nbsp;&nbsp;&nbsp;
 	Location:
-	<select id="locations" <c:if test="${model.locCodeSelected > 0}">disabled</c:if>>
-		<c:forEach items="${model.locCodes}" var="locCode" varStatus="i"><c:choose><c:when test="${model.locCodeSelected == i.index }">
-		<option value="${locCode[0]}" selected>${locCode[1]}</option></c:when><c:otherwise>
-		<option value="${locCode[0]}">${locCode[1]}</option></c:otherwise></c:choose></c:forEach>
+	<select id="locations" <c:if test="${!empty model.locCodeSelected}">disabled</c:if>>
+		<c:forEach items="${model.locCodes}" var="locCodeEntry" varStatus="i">
+			<option value="${locCodeEntry.key}"<c:if test="${model.locCodeSelected == locCodeEntry.key}"> selected</c:if>>${locCodeEntry.value}</option>
+		</c:forEach>
 	</select>
 	&nbsp;&nbsp;&nbsp;
 	<input type="button" value="submit" onClick="javascript:addPickup();"/>

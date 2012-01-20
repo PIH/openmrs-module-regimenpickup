@@ -28,15 +28,6 @@ import javax.servlet.http.HttpServletRequest;
 import org.openmrs.Concept;
 import org.openmrs.Obs;
 import org.openmrs.Patient;
-import org.openmrs.PatientProgram;
-import org.openmrs.PatientState;
-import org.openmrs.PersonAttribute;
-import org.openmrs.Program;
-import org.openmrs.ProgramWorkflow;
-import org.openmrs.ProgramWorkflowState;
-import org.openmrs.api.ConceptService;
-import org.openmrs.api.ObsService;
-import org.openmrs.api.ProgramWorkflowService;
 import org.openmrs.api.context.Context;
 import org.openmrs.util.OpenmrsUtil;
 import org.openmrs.web.controller.PortletController;
@@ -44,47 +35,7 @@ import org.openmrs.web.controller.PortletController;
 public class RegimenPickupPortletController extends PortletController {
     
     private static String[] months = new String[]{"Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"};
-	private static ArrayList<String[]> regCodes = new ArrayList<String[]>();
-	static {
-		regCodes.add(new String[]{"", ""});
-		regCodes.add(new String[]{"1a(30)", "1a"});
-		regCodes.add(new String[]{"1b(30)", "1b"});
-		regCodes.add(new String[]{"1c", "1c"});
-		regCodes.add(new String[]{"1d", "1d"});
-		regCodes.add(new String[]{"1e", "1e"});
-		regCodes.add(new String[]{"1f", "1f"});
-		regCodes.add(new String[]{"2a", "2a"});
-		regCodes.add(new String[]{"2b", "2b"});
-		regCodes.add(new String[]{"2c", "2c"});
-		regCodes.add(new String[]{"2d", "2d"});
-		regCodes.add(new String[]{"2e", "2e"});
-		regCodes.add(new String[]{"4a", "4a"});
-		regCodes.add(new String[]{"4b", "4b"});
-		regCodes.add(new String[]{"4c", "4c"});
-		regCodes.add(new String[]{"4d", "4d"});
-		regCodes.add(new String[]{"5a", "5a"});
-		regCodes.add(new String[]{"5b", "5b"});
-		regCodes.add(new String[]{"S1", "S1"});
-		regCodes.add(new String[]{"S2", "S2"});
-		regCodes.add(new String[]{"S3", "S3"});
-		regCodes.add(new String[]{"S4", "S4"});
-		regCodes.add(new String[]{"S5", "S5"});
-		regCodes.add(new String[]{"S6", "S6"});
-		regCodes.add(new String[]{"AZT", "AZT"});
-		regCodes.add(new String[]{"OTH", "Other"});
-	}	
-	private static ArrayList<String[]> locCodes = new ArrayList<String[]>();
-	static {
-		locCodes.add(new String[]{"", "", ""});
-		locCodes.add(new String[]{"Bobete", "BB", "4"});
-		locCodes.add(new String[]{"Lebakeng", "LK", "5"});	
-		locCodes.add(new String[]{"Methalaneng", "MG", "7"});	
-		locCodes.add(new String[]{"Nohana", "NH", "2"});	
-		locCodes.add(new String[]{"Nkau", "NK", "3"});	
-		locCodes.add(new String[]{"Manamaneng", "RA", "8"});	
-		locCodes.add(new String[]{"Tlhanyaku", "TY", "10"});	
-	}	
-	
+    
 	/*
 	 * functions:
 	 *  autopopulate new pickup (last regimen), date (today), site (health center patient attr)
@@ -98,40 +49,35 @@ public class RegimenPickupPortletController extends PortletController {
 	@Override
     protected void populateModel(HttpServletRequest request, Map<String, Object> model) {
         if (Context.isAuthenticated()) {
-                    
-            String patientIdString = request.getParameter("patientId");
-            Patient patient = Context.getPatientService().getPatient(Integer.valueOf(patientIdString));
+        	
+            Patient patient = (Patient)model.get("patient");
 
-            //get all unvoided observations for this patient
-            ConceptService cs = Context.getConceptService();
-            ObsService os = Context.getObsService();
-            Concept medsDispensed = cs.getConcept(2876);
-            List<Obs> pickupList = os.getObservationsByPersonAndConcept(patient, medsDispensed);
+            //get all non-voided observations for this patient, ordered by date ascending
+            Concept medsDispensed = RegimenPickupUtil.getMedsDispensedConcept();
+            List<Obs> pickupList = Context.getObsService().getObservationsByPersonAndConcept(patient, medsDispensed);
+            Collections.sort(pickupList, new Comparator<Obs>() {
+                public int compare(Obs left, Obs right) {
+                    return OpenmrsUtil.compareWithNullAsEarliest(left.getObsDatetime(), right.getObsDatetime());
+                }
+            });
 
             //we create a 3 layer hierarchy
             //  a variable list of years where each element contains
             //    a fixed list of months where each element contains
             //      a variable list of pickups where each element contains
             //        a regimen code, date, obs_id
-            ArrayList<ArrayList<String[]>[]> pickupsByYear = new ArrayList<ArrayList<String[]>[]>();
-            ArrayList<String> years = new ArrayList<String>();
-            ArrayList<String[]>[] pickupsByMonth;
+            List<List<String[]>[]> pickupsByYear = new ArrayList<List<String[]>[]>();
+            List<String> years = new ArrayList<String>();
+            List<String[]>[] pickupsByMonth;
             String regCode = null;
 
             //error checking/highlighting data structure storage
-            ArrayList<String[]> invPickups = new ArrayList<String[]>();
+            List<String[]> invPickups = new ArrayList<String[]>();
             //this stores the css class that we will use to highlight error months
-            ArrayList<String[]> hilite = new ArrayList<String[]>();
+            List<String[]> hilite = new ArrayList<String[]>();
             boolean hasError = false;
 
-
             if(pickupList.size() > 0){
-                //sort those obs
-                Collections.sort(pickupList, new Comparator<Obs>() {
-                    public int compare(Obs left, Obs right) {
-                        return OpenmrsUtil.compareWithNullAsEarliest(left.getObsDatetime(), right.getObsDatetime());
-                    }
-                });
                 
                 // let's determine the bounds
                 Obs startDateObj = pickupList.get(0); 
@@ -140,11 +86,11 @@ public class RegimenPickupPortletController extends PortletController {
                 Date endDate = endDateObj.getObsDatetime();
                 
                 // add checks to handle bad data
-                Date minDate = (new GregorianCalendar(2006, 1, 1)).getTime();
+                Date minDate = RegimenPickupUtil.getMinimumSupportedPickupDate();
                 Date maxDate = new Date();
                 
                 // prune the list before the min date; but keep a reference to the first obj
-                if(startDate.before(minDate)){
+                if(minDate != null && startDate.before(minDate)){
                 	while(startDate != null && startDate.before(minDate)){
                 		pickupList.remove(0);
                 		Obs o = pickupList.get(0);
@@ -172,16 +118,20 @@ public class RegimenPickupPortletController extends PortletController {
                 }else{
                 	endDateObj = null;
                 }
-
             
                 //now we populate the pickupsByYear 3 level hierarchy
-                GregorianCalendar c = new GregorianCalendar();
+                Calendar c = new GregorianCalendar();
                 c.setTime(pickupList.get(0).getObsDatetime());
                 int curYear = c.get(Calendar.YEAR) - 1;
                 int curMonth;
                 Obs curObs;
                 Date curDate = null;
                 Date lastDate = null;
+                
+                int firstYearIndex = 0;
+                int lastYearIndex = years.size()-1;
+                int firstMonthIndex = -1;
+                int lastMonthIndex = -1;
                
                 for(int i = 0; i < pickupList.size(); i++){
                 	curObs = pickupList.get(i);
@@ -213,6 +163,10 @@ public class RegimenPickupPortletController extends PortletController {
                     		}else{
                     			curYear++;
                     		}
+                    		
+        					firstMonthIndex = firstMonthIndex == -1 ? curMonth : firstMonthIndex;
+        					lastMonthIndex = curMonth;
+        					lastYearIndex = years.size()-1;
                     	}
                     	i--;
                 	}
@@ -220,21 +174,14 @@ public class RegimenPickupPortletController extends PortletController {
 
             	//now after we've built up our data structure, do some validation via highlighting
                 //unfortunately, we have to iterate again through the entire loop twice
-                ArrayList<String[]> pickups = null;
+                List<String[]> pickups = null;
                 int pickupCounter = -1;
-                c.setTime(pickupList.get(0).getObsDatetime());
-                int firstYearIndex = 0;
-                int firstMonth = c.get(Calendar.MONTH);
-                c.setTime(new Date());
-                int nowYearIndex = hilite.size() - 1;
-                int nowMonth = c.get(Calendar.MONTH);
 
                 for(int i = 0; i < pickupsByYear.size(); i++){
             		pickupsByMonth = pickupsByYear.get(i);
             		for(int j = 0; j < pickupsByMonth.length; j++){
             			pickups = pickupsByMonth[j];
             			pickupCounter += pickups.size();
-            			//log.info("i: (" + i + ")  j: (" + j + ")  pickupCounter: ("+ pickupCounter + ")  pickups.size(): ("+ pickups.size() + ")");
         				if(pickups.size() > 0){
                     		curDate = pickupList.get(pickupCounter).getObsDatetime();
         					if(pickups.size() == 1){
@@ -298,21 +245,13 @@ public class RegimenPickupPortletController extends PortletController {
                     		lastDate = curDate;
         				}else{
         					if(hilite.get(i)[j] == null){
-	        	            	//now set the highlighting for anything that isn't a pickup
-        						//log.info("i: " + i + ", j: " + j + ", firstMonth: " + firstMonth + ", nowMonth: " + nowMonth);
-	            				if(firstYearIndex == nowYearIndex){
-	            					if(j >= firstMonth && j <= nowMonth){
-    	            					hilite.get(i)[j] = "DrugNeedsOr";
-	            					}else{
-    	            					hilite.get(i)[j] = "DrugNeedsWh";
-	            					}
-	            				}else if((i > firstYearIndex && i < nowYearIndex) || 
-	            						(i == firstYearIndex && j >= firstMonth) ||
-	            						(i == nowYearIndex && j <= nowMonth)){
-	            					hilite.get(i)[j] = "DrugNeedsOr";
-		                		}else{
-	            					hilite.get(i)[j] = "DrugNeedsWh";
-		                		}
+        						//now set the highlighting for anything that isn't a pickup
+        						if (i == lastYearIndex && j > lastMonthIndex || (i == firstYearIndex && j < firstMonthIndex)) {
+        							hilite.get(i)[j] = "DrugNeedsWh";
+        						}
+        						else {
+        							hilite.get(i)[j] = "DrugNeedsOr";
+        						}
         					}
         				}
             		}
@@ -339,7 +278,6 @@ public class RegimenPickupPortletController extends PortletController {
                 }
             }
             
-            
             model.put("pickupsByYear", pickupsByYear);
             model.put("years", years);
             model.put("invPickups", invPickups);
@@ -353,32 +291,12 @@ public class RegimenPickupPortletController extends PortletController {
             model.put("now", formattedDate);
             
             //auto set the regimen
-            model.put("regCodes", regCodes);
-            int regCodeSelected = -1;
-            for(int i = 0; i < regCodes.size(); i++){
-            	if((regCodes.get(i))[0].equals(regCode)){
-            		regCodeSelected = i;
-            	}
-            }
-            model.put("regCodeSelected", regCodeSelected);
+            model.put("regCodes", RegimenPickupUtil.getMedsDispensedAnswers());
+            model.put("regCodeSelected", regCode);
             
-            //auto set the hc
-            PersonAttribute pa = Context.getPersonService().getPerson(patient.getPersonId()).getAttribute(7);
-            String hc = null;
-            if(pa != null){
-            	hc = pa.getValue();
-            }else{
-            	hc = "";
-            }
-            //log.info(hc);
-           	model.put("locCodes", locCodes);
-            int locCodeSelected = -1;
-            for(int i = 0; i < locCodes.size(); i++){
-            	if((locCodes.get(i))[2].equals(hc)){
-            		locCodeSelected = i;
-            	}
-            }
-            model.put("locCodeSelected", locCodeSelected);
+            //auto set the location
+            model.put("locCodes", RegimenPickupUtil.getSupportedLocations());
+            model.put("locCodeSelected", RegimenPickupUtil.getDefaultLocationIdForPatient(patient));
             
             //check locale
             String locale = "en_US";
@@ -387,39 +305,10 @@ public class RegimenPickupPortletController extends PortletController {
             }
             model.put("locale", locale);
             
-            //check patient state, if it isn't ART or PMTCT, then no good
-            boolean invalidState = true;
-            Integer state = getCurrentState(patient, 1, "TREATMENT STATUS");
-            if(state != null){
-            	if(state == 1 || state == 27){
-            		invalidState = false;
-            	}
-            }
-            model.put("invalidState", invalidState);
+            //check required patient states, if applicable
+            model.put("invalidState", RegimenPickupUtil.getInvalidStateWarningForPatient(patient));
         }
     }
-    
-    /* 
-     * stolen from Christian Neumann in Malawi
-     */
-    private Integer getCurrentState(Patient patient, int programId, String progWkflwConceptName) {
-    	ProgramWorkflowService pws = Context.getProgramWorkflowService();
-        Program program = pws.getProgram(programId);
-        ProgramWorkflow pw = program.getWorkflowByName(progWkflwConceptName);
-		List<PatientProgram> pps = pws.getPatientPrograms(patient, program, null, null, new Date(), null, false);
-		
-		//there should only be one active patient program
-		if (pps.size() == 1) {
-			PatientState ps = pps.get(0).getCurrentState(pw);
-			if(ps != null){
-				ProgramWorkflowState pwstate = ps.getState();
-				if(pwstate != null){
-					return pwstate.getProgramWorkflowStateId();
-				}
-			}
-		}
-		return null;
-	}
     
     //tells us if the adjacent month from pickupPos is empty (depending on direction)
 	//

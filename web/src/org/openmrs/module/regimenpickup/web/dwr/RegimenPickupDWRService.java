@@ -82,12 +82,12 @@ public class RegimenPickupDWRService {
      /**
       * Adds a new pickup for the given regimen, date, location, and patient
       */
-     public boolean addPickup(String regimen, String dateString, String locationName, Integer patientId) {
+     public boolean addPickup(String regimen, String dateString, String locationId, Integer patientId) {
     	 try {
     		 // Parse the input parameters
     		 Patient patient = Context.getPatientService().getPatient(patientId);
     		 Date pickupDate = Context.getDateFormat().parse(dateString);
-    		 Location l = getLocation(locationName);
+    		 Location l = getLocation(locationId);
              Concept medsDispensed = getMedsDispensedConcept();
              
              // Create a new Encounter and Observation for this medication pickup
@@ -148,10 +148,10 @@ public class RegimenPickupDWRService {
 	 /**
 	  * Utility method to retrieve a Location by name, or default to Unknown Location if not found
 	  */
-	 private Location getLocation(String name) {
+	 private Location getLocation(String locationId) {
          Location site = null;
          try {
-        	 site = Context.getLocationService().getLocation(name);
+        	 site = Context.getLocationService().getLocation(Integer.parseInt(locationId));
          }
          catch(Exception e) {
              site = Context.getLocationService().getLocation("Unknown Location");
