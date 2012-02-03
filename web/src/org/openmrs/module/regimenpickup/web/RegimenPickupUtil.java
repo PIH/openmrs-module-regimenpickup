@@ -201,14 +201,19 @@ public class RegimenPickupUtil {
 	    				 }
 	    			 }
 	    		 }
+	    	 }else if (pps.size() == 0){
+	    		 return "Patient is not enrolled in an active " + split[0] + ".  Please enroll the patient or remove the completion date if the patient is already enrolled.";	    		 
+	    	 }else if(pps.size() > 1){
+	    		 return "There are multiple " + split[0] + "S for this patient.  Please ensure there is only one active " + split[0] + ".";
 	    	 }
+	    	 
 	    	 StringBuilder stateNameString = new StringBuilder();
 	    	 for (String stateName : stateNames) {
 	    		 stateNameString.append(stateNameString.length() == 0 ? "" : " or ");
 	    		 stateNameString.append(stateName);
 	    	 }
 	    	 
-	    	 return "Before entering the pickup, please make sure the patient has an " + split[0] + " - " + split[1] + " of " + stateNameString;
+	    	 return "Patient must be in " + stateNameString + " " + split[1];
 	     }
 	     catch (Exception e) {
 	     }

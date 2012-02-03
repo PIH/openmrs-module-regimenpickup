@@ -61,9 +61,10 @@ function addPickup(){
 		alert('Pickup Date can not be in the future!');
 		return;
 	}
-
-	if(pdate < new Date(2006, 1, 1, 0, 0, 0, 0)){
-		alert('Pickup Date can not be before 2006-Jan-01!');
+    var minDate = enGbStrToDate("${model.minDate}");
+    
+	if(pdate < minDate){
+		alert('Pickup Date can not be before ${model.minDate}!');
 		return;
 	}		
 	

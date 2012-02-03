@@ -155,7 +155,13 @@ public class RegimenPickupPortletController extends PortletController {
                     		curMonth = c.get(Calendar.MONTH);
                     		//log.info("Adding: "+ Integer.toString(curYear) + "-" + Integer.toString(curMonth));
                     		regCode = curObs.getValueText();
-                    		pickupsByMonth[curMonth].add(new String[]{Integer.toString(c.get(Calendar.DATE)), regCode.substring(0, 2), Integer.toString(curObs.getObsId())});
+                    		String regCodeTmp = regCode;
+                    		if(regCode == null){ //some obs have null value_text fields....
+                    			regCodeTmp = "unk";
+                    		}else if(regCode.length() > 3 ){
+                    			regCodeTmp = regCode.substring(0, 2);
+                    		}
+                    		pickupsByMonth[curMonth].add(new String[]{Integer.toString(c.get(Calendar.DATE)), regCodeTmp, Integer.toString(curObs.getObsId())});
                     		i++;
                     		if(i < pickupList.size()){
                     			curObs = pickupList.get(i);
@@ -219,7 +225,7 @@ public class RegimenPickupPortletController extends PortletController {
 	            					//check to see if next month is blank
 	            					if(adjacentMonthIsEmpty(pickupList, pickupCounter, 1)){
 	                					if(j == 11){
-	                						//if this is dec and we there is a next year...
+	                						//if this is dec and there is a next year...
 	                						if(i+1 < pickupsByYear.size()){
 	                							hilite.get(i+1)[0] = "DrugNeedsLg";
 	                    					}
@@ -228,8 +234,8 @@ public class RegimenPickupPortletController extends PortletController {
 	                					}
 	            					}else if(adjacentMonthIsEmpty(pickupList, pickupCounter-1, -1)){
 	                					if(j == 0){
-	                						//if this is jan and we there is a prev year...
-	                						if(i-1 < 0){
+	                						//if this is jan and there is a prev year...
+	                						if(i-1 > 0){
 	                							hilite.get(i-1)[0] = "DrugNeedsLg";
 	                    					}
 	                					}else{
@@ -307,6 +313,8 @@ public class RegimenPickupPortletController extends PortletController {
             
             //check required patient states, if applicable
             model.put("invalidState", RegimenPickupUtil.getInvalidStateWarningForPatient(patient));
+            
+            model.put("minDate", df.format(RegimenPickupUtil.getMinimumSupportedPickupDate()));
         }
     }
     
