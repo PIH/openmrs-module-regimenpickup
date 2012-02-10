@@ -51,6 +51,7 @@ public class RegimenPickupPortletController extends PortletController {
         if (Context.isAuthenticated()) {
         	
             Patient patient = (Patient)model.get("patient");
+            log.info("populateModel, Patient=" + Integer.toString(patient.getId()));
 
             //get all non-voided observations for this patient, ordered by date ascending
             Concept medsDispensed = RegimenPickupUtil.getMedsDispensedConcept();

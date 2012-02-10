@@ -46,30 +46,32 @@ public class RegimenPickupDWRService {
 	    	 ObsService os = Context.getObsService(); 
 	    	 EncounterService es = Context.getEncounterService();
 	    	 
+	    	 log.info("voidPickup, Patient=" + Integer.toString(patientId) + ", Obs=" + Integer.toString(obsId));
+	    	 
 	         Obs obsToDelete = os.getObs(obsId);
 	         Encounter encToDelete = obsToDelete.getEncounter();
 
 	         // Void the passed Obs, confirming first that the patient is the one we are working with
 	         if (obsToDelete != null && obsToDelete.getPersonId().equals(patientId)){
 	             os.voidObs(obsToDelete, "voided by regimenpickup module: delete pickup");
-	         }
 	         
-	         // Locate the associated Encounter, or another Regimen Pickup encounter that occurs on the same date
-	         if (encToDelete == null) {
-		         List<EncounterType> ets = new ArrayList<EncounterType>();
-		         ets.add(getEncounterType());
-		         Patient patient = Context.getPatientService().getPatient(patientId);
-	        	 List<Encounter> encs = es.getEncounters(patient, null, obsToDelete.getObsDatetime(), obsToDelete.getObsDatetime(), null, ets, null, false);
-	        	 for (Encounter e : encs) {
-	        		 if (encToDelete == null && e.getEncounterType() != null && e.getEncounterType().equals(getEncounterType())) {
-	        			 encToDelete = e;
-	        		 }
-	        	 }
-	         }
+		         // Locate the associated Encounter, or another Regimen Pickup encounter that occurs on the same date
+		         if (encToDelete == null) {
+			         List<EncounterType> ets = new ArrayList<EncounterType>();
+			         ets.add(getEncounterType());
+			         Patient patient = Context.getPatientService().getPatient(patientId);
+		        	 List<Encounter> encs = es.getEncounters(patient, null, obsToDelete.getObsDatetime(), obsToDelete.getObsDatetime(), null, ets, null, false);
+		        	 for (Encounter e : encs) {
+		        		 if (encToDelete == null && e.getEncounterType() != null && e.getEncounterType().equals(getEncounterType())) {
+		        			 encToDelete = e;
+		        		 }
+		        	 }
+		         }
 	         
-	         // If the found Encounter has no non-voided Obs, void this Encounter as well
-	         if (encToDelete != null && encToDelete.getAllObs().isEmpty()) {
-	        	 es.voidEncounter(encToDelete, "voided by regimenpickup module: delete pickup");
+		         // If the found Encounter has no non-voided Obs, void this Encounter as well
+		         if (encToDelete != null && encToDelete.getAllObs().isEmpty()) {
+		        	 es.voidEncounter(encToDelete, "voided by regimenpickup module: delete pickup");
+		         }
 	         }
          } 
          catch (Exception ex) {
@@ -84,7 +86,9 @@ public class RegimenPickupDWRService {
       */
      public boolean addPickup(String regimen, String dateString, String locationId, Integer patientId) {
     	 try {
-    		 // Parse the input parameters
+	    	 log.info("addPickup, Patient=" + Integer.toString(patientId) + ", Date=" + dateString);
+
+	    	 // Parse the input parameters
     		 Patient patient = Context.getPatientService().getPatient(patientId);
     		 Date pickupDate = Context.getDateFormat().parse(dateString);
     		 Location l = getLocation(locationId);
